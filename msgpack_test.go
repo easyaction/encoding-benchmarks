@@ -6,17 +6,10 @@ import (
 	"testing"
 
 	standardModel "github.com/easyaction/encoding-benchmarks/messagepack/model/standard"
-	vmihailencoModel "github.com/easyaction/encoding-benchmarks/messagepack/model/vmihailenco"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/vmihailenco/msgpack/v4"
 )
-
-// jsonPayload is a variable holding encoded JSON reference payload used in all benchmarks.
-var jsonPayload []byte
-
-// jsonResult is a dummy output variable for each benchmark. In benchmarks all results must be copied over to an exported variable to prevent Go compiler from skipping parts of code which results are never used.
-var jsonResult interface{}
 
 // init reads JSON reference payload.
 func init() {
@@ -31,43 +24,42 @@ func init() {
 // TestJSONParserDecoding tests decoding through low level API provided by buger/jsonparser library,
 // Test is required to make sure that custom unmarshal method is working properly.
 func TestVmihailencoDecoding(t *testing.T) {
-	entityParser := &vmihailencoModel.Superhero{}
-	err := entityParser.UnmarshalJSON(jsonPayload)
+	entityMsgpack := &standardModel.Superhero{}
+	err := msgpack.Unmarshal(jsonPayload, entityMsgpack)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	entity := &standardModel.Superhero{}
 	err = jsoniter.ConfigFastest.Unmarshal(jsonPayload, entity)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, entity.Id, entityParser.ID)
-	assert.Equal(t, entity.AffiliationId, entityParser.AffiliationID)
-	assert.Equal(t, entity.Name, entityParser.Name)
-	assert.Equal(t, entity.Life, entityParser.Life)
-	assert.Equal(t, entity.Energy, entityParser.Energy)
+	assert.Equal(t, entity.Id, entityMsgpack.ID)
+	assert.Equal(t, entity.AffiliationId, entityMsgpack.AffiliationID)
+	assert.Equal(t, entity.Name, entityMsgpack.Name)
+	assert.Equal(t, entity.Life, entityMsgpack.Life)
+	assert.Equal(t, entity.Energy, entityMsgpack.Energy)
 
 	for i, power := range entity.Powers {
-		parserPower := entityParser.Powers[i]
-		assert.Equal(t, power.Id, parserPower.ID)
-		assert.Equal(t, power.Name, parserPower.Name)
-		assert.Equal(t, power.Energy, parserPower.Energy)
-		assert.Equal(t, power.Damage, parserPower.Damage)
-		assert.Equal(t, power.Passive, parserPower.Passive)
+		parserPower := entityMsgpack.Powers[i]
+		assert.Equal(t, power.Id, entityMsgpack.ID)
+		assert.Equal(t, power.Name, entityMsgpack.Name)
+		assert.Equal(t, power.Energy, entityMsgpack.Energy)
+		assert.Equal(t, power.Damage, entityMsgpack.Damage)
+		assert.Equal(t, power.Passive, entityMsgpack.Passive)
 	}
 }
 
 // BenchmarkJSONDecodeParser performs benchmark of JSON decoding by using low level API provided by buger/jsonparser library.
 func BenchmarkMsgpackDecodeParser(b *testing.B) {
-	e := &vmihailencoModel.Superhero{}
+	e := &standardModel.Superhero{}
 
 	b.ResetTimer()
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		err := e.UnmarshalJSON(jsonPayload)
+		err := msgpack.Unmarshal(jsonPayload, e)
 		if err != nil {
 			b.Fatal(err)
 		}
