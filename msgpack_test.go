@@ -11,11 +11,35 @@ import (
 	"github.com/vmihailenco/msgpack/v4"
 )
 
+// jsonPayload is a variable holding encoded JSON reference payload used in all benchmarks.
+var msgPayload []byte
+
+// jsonResult is a dummy output variable for each benchmark. In benchmarks all results must be copied over to an exported variable to prevent Go compiler from skipping parts of code which results are never used.
+var msgResult interface{}
+
 // init reads JSON reference payload.
 func init() {
 	var err error
 
-	jsonPayload, err = ioutil.ReadFile("./messagepack/payload/superhero.json")
+	jsonPayload, err := ioutil.ReadFile("./messagepack/payload/superhero.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	sh := &standardModel.Superhero{}
+	err = jsoniter.ConfigFastest.Unmarshal(jsonPayload, sh)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	b, err := msgpack.Marshal(sh)
+
+	err = ioutil.WriteFile("./messagepack/payload/superhero.msgpack", b, 0)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	msgPayload, err = ioutil.ReadFile("./messagepack/payload/superhero.msgpack")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -25,29 +49,30 @@ func init() {
 // Test is required to make sure that custom unmarshal method is working properly.
 func TestVmihailencoDecoding(t *testing.T) {
 	entityMsgpack := &standardModel.Superhero{}
-	err := msgpack.Unmarshal(jsonPayload, entityMsgpack)
+	err := msgpack.Unmarshal(msgPayload, entityMsgpack)
 	if err != nil {
 		t.Fatal(err)
 	}
+	entity := &standardModel.Superhero{}
 
 	err = jsoniter.ConfigFastest.Unmarshal(jsonPayload, entity)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, entity.Id, entityMsgpack.ID)
-	assert.Equal(t, entity.AffiliationId, entityMsgpack.AffiliationID)
+	assert.Equal(t, entity.Id, entityMsgpack.Id)
+	assert.Equal(t, entity.AffiliationId, entityMsgpack.AffiliationId)
 	assert.Equal(t, entity.Name, entityMsgpack.Name)
 	assert.Equal(t, entity.Life, entityMsgpack.Life)
 	assert.Equal(t, entity.Energy, entityMsgpack.Energy)
 
 	for i, power := range entity.Powers {
-		parserPower := entityMsgpack.Powers[i]
-		assert.Equal(t, power.Id, entityMsgpack.ID)
-		assert.Equal(t, power.Name, entityMsgpack.Name)
-		assert.Equal(t, power.Energy, entityMsgpack.Energy)
-		assert.Equal(t, power.Damage, entityMsgpack.Damage)
-		assert.Equal(t, power.Passive, entityMsgpack.Passive)
+		msgpackPower := entityMsgpack.Powers[i]
+		assert.Equal(t, power.Id, msgpackPower.Id)
+		assert.Equal(t, power.Name, msgpackPower.Name)
+		assert.Equal(t, power.Energy, msgpackPower.Energy)
+		assert.Equal(t, power.Damage, msgpackPower.Damage)
+		assert.Equal(t, power.Passive, msgpackPower.Passive)
 	}
 }
 
@@ -59,12 +84,12 @@ func BenchmarkMsgpackDecodeParser(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		err := msgpack.Unmarshal(jsonPayload, e)
+		err := msgpack.Unmarshal(msgPayload, e)
 		if err != nil {
 			b.Fatal(err)
 		}
 
-		jsonResult = e
+		msgResult = e
 	}
 }
 
@@ -84,6 +109,6 @@ func BenchmarkMsgpackEncodeIterator(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		jsonResult = p
+		msgResult = p
 	}
 }
